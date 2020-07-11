@@ -87,6 +87,11 @@ func (c *Client) Connect() error {
 	if connack.ReasonCode != lmproto.ReasonSuccess {
 		return errors.New("连接失败！")
 	}
+	if len(c.sending) > 0 {
+		for _, packet := range c.sending {
+			c.sendPacket(packet)
+		}
+	}
 	go c.loopConn()
 	go c.loopPing()
 	return nil
@@ -94,7 +99,14 @@ func (c *Client) Connect() error {
 
 // Disconnect 断开IM
 func (c *Client) Disconnect() {
-	c.connected.Store(false)
+	c.handleClose()
+}
+
+func (c *Client) handleClose() {
+	if c.connected.Load() {
+		c.connected.Store(false)
+		c.conn.Close()
+	}
 }
 
 // SendMessage 发送消息
@@ -152,6 +164,7 @@ func (c *Client) loopConn() {
 		frame, err := c.proto.DecodePacketWithConn(c.conn, c.opts.ProtoVersion)
 		if err != nil {
 			log.Println("解码数据失败！", err)
+			c.handleClose()
 			goto exit
 		}
 		c.handlePacket(frame)
