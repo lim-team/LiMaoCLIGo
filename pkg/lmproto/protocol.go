@@ -20,7 +20,7 @@ type LiMaoProto struct {
 }
 
 // LatestVersion 最新版本
-const LatestVersion = 2
+const LatestVersion uint8 = 2
 
 // MaxRemaingLength 最大剩余长度 // 1<<28 - 1
 const MaxRemaingLength uint32 = 1024 * 1024
