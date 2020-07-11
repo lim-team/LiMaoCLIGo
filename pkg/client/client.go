@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/lim-team/LiMaoCLIGo/pkg/lmproto"
-	"github.com/lim-team/LiMaoIM/pkg/util"
+	"github.com/lim-team/LiMaoCLIGo/pkg/util"
 	"go.uber.org/atomic"
 )
 
