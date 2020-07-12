@@ -24,6 +24,9 @@ func init() {
 // OnRecv 收到消息事件
 type OnRecv func(recv *lmproto.RecvPacket) error
 
+// OnSendack 发送消息回执
+type OnSendack func(sendack *lmproto.SendackPacket)
+
 // OnClose 连接关闭
 type OnClose func()
 
@@ -41,6 +44,7 @@ type Client struct {
 	clientIDGen       atomic.Uint64
 	onRecv            OnRecv
 	onClose           OnClose
+	onSendack         OnSendack
 	sendTotalMsgBytes atomic.Int64 // 发送消息总bytes数
 }
 
@@ -148,6 +152,11 @@ func (c *Client) SetOnClose(onClose OnClose) {
 	c.onClose = onClose
 }
 
+// SetOnSendack 设置发送回执
+func (c *Client) SetOnSendack(onSendack OnSendack) {
+	c.onSendack = onSendack
+}
+
 // GetSendMsgBytes 获取已发送字节数
 func (c *Client) GetSendMsgBytes() int64 {
 	return c.sendTotalMsgBytes.Load()
@@ -215,6 +224,9 @@ func (c *Client) handlePacket(frame lmproto.Frame) {
 }
 
 func (c *Client) handleSendackPacket(packet *lmproto.SendackPacket) {
+	if c.onSendack != nil {
+		c.onSendack(packet)
+	}
 	for i, sendPacket := range c.sending {
 		if sendPacket.ClientSeq == packet.ClientSeq {
 			c.sending = append(c.sending[:i], c.sending[i+1:]...)
