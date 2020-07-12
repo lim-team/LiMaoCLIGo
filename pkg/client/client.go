@@ -24,6 +24,9 @@ func init() {
 // OnRecv 收到消息事件
 type OnRecv func(recv *lmproto.RecvPacket) error
 
+// OnClose 连接关闭
+type OnClose func()
+
 // Client 狸猫客户端
 type Client struct {
 	opts              *Options              // 狸猫IM配置
@@ -37,6 +40,7 @@ type Client struct {
 	retryPingCount    int // 重试ping次数
 	clientIDGen       atomic.Uint64
 	onRecv            OnRecv
+	onClose           OnClose
 }
 
 // New 创建客户端
@@ -106,11 +110,14 @@ func (c *Client) handleClose() {
 	if c.connected.Load() {
 		c.connected.Store(false)
 		c.conn.Close()
+		if c.onClose != nil {
+			c.onClose()
+		}
 	}
 }
 
 // SendMessage 发送消息
-func (c *Client) SendMessage(channel *Channel, payload []byte) error {
+func (c *Client) SendMessage(channel *Channel, payload []byte) (*lmproto.SendackPacket, error) {
 	packet := &lmproto.SendPacket{
 		ClientSeq:   c.clientIDGen.Add(1),
 		ClientMsgNo: util.GenUUID(),
@@ -119,12 +126,25 @@ func (c *Client) SendMessage(channel *Channel, payload []byte) error {
 		Payload:     payload,
 	}
 	c.sending = append(c.sending, packet)
-	return c.sendPacket(packet)
+	err := c.sendPacket(packet)
+	if err != nil {
+		return nil, err
+	}
+	f, err := c.proto.DecodePacketWithConn(c.conn, c.opts.ProtoVersion)
+	if err != nil {
+		return nil, err
+	}
+	return f.(*lmproto.SendackPacket), err
 }
 
 // SetOnRecv 设置收消息事件
 func (c *Client) SetOnRecv(onRecv OnRecv) {
 	c.onRecv = onRecv
+}
+
+// SetOnClose 设置关闭事件
+func (c *Client) SetOnClose(onClose OnClose) {
+	c.onClose = onClose
 }
 
 func (c *Client) loopPing() {
@@ -170,7 +190,7 @@ func (c *Client) loopConn() {
 		c.handlePacket(frame)
 	}
 exit:
-	log.Println("proxy断开，开始重连...")
+	log.Println("断开，开始重连...")
 	c.connected.Store(true)
 	c.stopHeartbeatChan <- true
 	c.Connect()
