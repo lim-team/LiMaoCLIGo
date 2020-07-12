@@ -122,7 +122,7 @@ func (c *Client) handleClose() {
 }
 
 // SendMessage 发送消息
-func (c *Client) SendMessage(channel *Channel, payload []byte) (*lmproto.SendackPacket, error) {
+func (c *Client) SendMessage(channel *Channel, payload []byte) error {
 	packet := &lmproto.SendPacket{
 		ClientSeq:   c.clientIDGen.Add(1),
 		ClientMsgNo: util.GenUUID(),
@@ -131,15 +131,7 @@ func (c *Client) SendMessage(channel *Channel, payload []byte) (*lmproto.Sendack
 		Payload:     payload,
 	}
 	c.sending = append(c.sending, packet)
-	err := c.sendPacket(packet)
-	if err != nil {
-		return nil, err
-	}
-	f, err := c.proto.DecodePacketWithConn(c.conn, c.opts.ProtoVersion)
-	if err != nil {
-		return nil, err
-	}
-	return f.(*lmproto.SendackPacket), err
+	return c.sendPacket(packet)
 }
 
 // SetOnRecv 设置收消息事件
