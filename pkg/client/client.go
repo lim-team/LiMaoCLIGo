@@ -41,6 +41,7 @@ type Client struct {
 	clientIDGen       atomic.Uint64
 	onRecv            OnRecv
 	onClose           OnClose
+	sendTotalMsgBytes atomic.Int64 // 发送消息总bytes数
 }
 
 // New 创建客户端
@@ -147,6 +148,11 @@ func (c *Client) SetOnClose(onClose OnClose) {
 	c.onClose = onClose
 }
 
+// GetSendMsgBytes 获取已发送字节数
+func (c *Client) GetSendMsgBytes() int64 {
+	return c.sendTotalMsgBytes.Load()
+}
+
 func (c *Client) loopPing() {
 	for {
 		select {
@@ -175,6 +181,7 @@ func (c *Client) sendPacket(packet lmproto.Frame) error {
 	if err != nil {
 		return err
 	}
+	c.sendTotalMsgBytes.Add(int64(len(data)))
 	_, err = c.conn.Write(data)
 	return err
 }
